@@ -32,7 +32,7 @@ wandb.init(project="qualcomm")
 # define hyperparameters
 wandb.config.episodes = 50000
 wandb.config.batch_size = 32
-wandb.config.learning_rate = 1e-8
+wandb.config.learning_rate = 1e-7
 input_size = (32,32)
 export_path = os.path.join(wandb.run.dir, "model.h5")
 
