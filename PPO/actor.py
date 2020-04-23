@@ -24,7 +24,7 @@ class Actor(Agent):
     def build_actor(self, env_dim, act_dim, lr, loss_clipping, entropy_loss):
         HIDDEN_SIZE = 128
         NUM_LAYERS = 2
-        state_input = Input(shape=(env_dim,))
+        state_input = Input(shape=(*env_dim,))
         advantage = Input(shape=(1,))
         old_prediction = Input(shape=(act_dim,))
 
@@ -32,6 +32,7 @@ class Actor(Agent):
         for _ in range(NUM_LAYERS - 1):
             x = Dense(HIDDEN_SIZE, activation='tanh')(x)
 
+        x = Flatten()(x)
         out_actions = Dense(act_dim, activation='softmax', name='output')(x)
 
         model = Model(inputs=[state_input, advantage, old_prediction], outputs=[out_actions])

@@ -19,7 +19,8 @@ class Agent:
     def predict(self, inp):
         """ Critic Value Prediction
         """
-        return self.model.predict(inp)
+        result = self.model.predict(inp)
+        return result
 
     def reshape(self, x):
         if len(x.shape) < 4 and len(self.inp_dim) > 2: return np.expand_dims(x, axis=0)

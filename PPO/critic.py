@@ -21,7 +21,7 @@ class Critic(Agent):
     def build_critic(self, env_dim, lr):
         HIDDEN_SIZE = 128
         NUM_LAYERS = 2
-        state_input = Input(shape=(env_dim,))
+        state_input = Input(shape=(*env_dim,))
         x = Dense(HIDDEN_SIZE, activation='tanh')(state_input)
         for _ in range(NUM_LAYERS - 1):
             x = Dense(HIDDEN_SIZE, activation='tanh')(x)

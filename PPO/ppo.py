@@ -15,6 +15,40 @@ from utils.stats import gather_stats
 
 from .ppo_loss import proximal_policy_optimization_loss 
 
+# **** Caution: Do not modify this cell ****
+# initialize total reward across episodes
+cumulative_reward = 0
+episode = 0
+
+import wandb
+def evaluate(episodic_reward, epsilon):
+  '''
+  Takes in the reward for an episode, calculates the cumulative_avg_reward
+    and logs it in wandb. If episode > 100, stops logging scores to wandb.
+    Called after playing each episode. See example below.
+
+  Arguments:
+    episodic_reward - reward received after playing current episode
+  '''
+  global episode
+  global cumulative_reward
+  episode += 1
+
+  # log total reward received in this episode to wandb
+  wandb.log({'episodic_reward': episodic_reward})
+
+  # add reward from this episode to cumulative_reward
+  cumulative_reward += episodic_reward
+
+  # calculate the cumulative_avg_reward
+  # this is the metric your models will be evaluated on
+  cumulative_avg_reward = cumulative_reward/episode
+
+  # log cumulative_avg_reward over all episodes played so far
+  wandb.log({'cumulative_avg_reward': cumulative_avg_reward})
+
+  wandb.log({'epsilon': epsilon})
+
 class PPO:
     """ Actor-Critic Main Algorithm
     """
@@ -61,7 +95,7 @@ class PPO:
         """
         DUMMY_ACTION, DUMMY_VALUE = np.zeros((1, self.act_dim)), np.zeros((1, 1))
 
-        p = self.actor.predict([self.observation.reshape(1, self.env_dim), DUMMY_VALUE, DUMMY_ACTION])
+        p = self.actor.predict([self.observation.reshape(1, *self.env_dim), DUMMY_VALUE, DUMMY_ACTION])
         if self.val is False:
             action = np.random.choice(self.act_dim, p=np.nan_to_num(p[0]))
         else:
@@ -80,7 +114,7 @@ class PPO:
                 env.render()
 
             action, action_matrix, predicted_action = self.get_action()
-            observation, reward, done, info = env.step_one(action)
+            observation, reward, done, info = env.step(action)
 
             self.reward.append(reward)
 
@@ -107,15 +141,15 @@ class PPO:
                     self.val = True
                 else:
                     self.val = False
-                self.observation = env.reset_one()
+                self.observation = env.reset()
                 self.reward = []
 
         obs, action, pred, reward = np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.reshape(np.array(batch[3]), (len(batch[3]), 1))
         pred = np.reshape(pred, (pred.shape[0], pred.shape[2]))
         return obs, action, pred, reward
 
-    def train(self, env, args, summary_writer):
-        self.observation = env.reset_one()
+    def train(self, env, args):
+        self.observation = env.reset()
         self.reward = []
         self.reward_over_time = []
         self.gradient_steps = 0
@@ -139,9 +173,7 @@ class PPO:
             # Train Actor and Critic
             actor_loss = self.actor.fit([obs, advantage, old_prediction], [action], batch_size=args.batch_size, shuffle=True, epochs=args.epochs, verbose=False)
             critic_loss = self.critic.fit([obs], [reward], batch_size=args.batch_size, shuffle=True, epochs=args.epochs, verbose=False)
-            # summary_writer.add_scalar('Actor loss', actor_loss.history['loss'][-1], self.gradient_steps)
-            # summary_writer.add_scalar('Critic loss', critic_loss.history['loss'][-1], self.gradient_steps)
-            
+
             # Get info
             self.batch_rewards.append(np.sum(reward))
             self.actor_losses.append(actor_loss.history['loss'])
@@ -153,6 +185,9 @@ class PPO:
             tqdm_e.set_description("Score per bash: " + str(np.sum(reward)))
             tqdm_e.update(self.episode - self.last_ep_recorded)
             self.last_ep_recorded = self.episode
+
+            if e%10 == 0:
+                evaluate(cumul_reward, self.epsilon)
 
         tqdm_e.close()
         return self.batch_rewards, self.actor_losses, self.critic_losses
