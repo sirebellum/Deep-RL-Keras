@@ -34,8 +34,6 @@ wandb.init(project="qualcomm")
 # define hyperparameters
 wandb.config.episodes = 50000
 wandb.config.batch_size = 32
-wandb.config.learning_rate = 1e-6
-input_size = (32,32)
 export_path = os.path.join(wandb.run.dir, "model.h5")
 
 gym.logger.set_level(40)
@@ -52,6 +50,7 @@ def parse_args(args):
     parser.add_argument('--dueling', dest='dueling', action='store_true', help="Use a Dueling Architecture (DDQN)")
     #
     parser.add_argument('--nb_episodes', type=int, default=wandb.config.episodes, help="Number of training episodes")
+    parser.add_argument('--epochs', type=int, default=1, help="Number of training episodes")
     parser.add_argument('--batch_size', type=int, default=wandb.config.batch_size, help="Batch size (experience replay)")
     parser.add_argument('--consecutive_frames', type=int, default=4, help="Number of consecutive frames (action repeat)")
     parser.add_argument('--training_interval', type=int, default=wandb.config.batch_size, help="Network training frequency")
@@ -62,7 +61,7 @@ def parse_args(args):
     parser.add_argument('--env', type=str, default='SpaceInvadersNoFrameskip-v0',help="OpenAI Gym Environment")
     #
     parser.add_argument('--load', type=str, default=None,help="OpenAI Gym Environment")
-    parser.add_argument('--buffer_size', type=int, default=1000000,help="Number of samples to store")
+    parser.add_argument('--buffer_size', type=int, default=10000,help="Number of samples to store")
     #
     #
     parser.set_defaults(render=False)
@@ -95,14 +94,11 @@ def main(args=None):
         # Train
         stats = algo.train(env, args)
 
-        # Export results to CSV
-        if(args.gather_stats):
-            df = pd.DataFrame(np.array(stats))
-            df.to_csv(args.type + "/logs.csv", header=['Episode', 'Mean', 'Stddev'], float_format='%10.5f')
-
     except KeyboardInterrupt:
         algo.save(export_path)
         env.env.close()
+    algo.save(export_path)
+    env.env.close()
 
 
 if __name__ == "__main__":

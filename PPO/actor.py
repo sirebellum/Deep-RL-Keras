@@ -2,10 +2,11 @@ import numpy as np
 import keras.backend as K
 
 from keras.models import Model, load_model
-from keras.layers import Input, Dense, Flatten
+from keras.layers import Input, Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D
 from keras.optimizers import Adam
 from .agent import Agent
 from .ppo_loss import proximal_policy_optimization_loss
+import keras
 
 class Actor(Agent):
     """ Actor for the A2C Algorithm
@@ -28,11 +29,32 @@ class Actor(Agent):
         advantage = Input(shape=(1,))
         old_prediction = Input(shape=(act_dim,))
 
-        x = Dense(HIDDEN_SIZE, activation='tanh')(state_input)
-        for _ in range(NUM_LAYERS - 1):
-            x = Dense(HIDDEN_SIZE, activation='tanh')(x)
+        x = Conv2D(kernel_size=(8,8),
+                   strides=(4,4),
+                   filters=32,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(state_input)
+        x = Conv2D(kernel_size=(4,4),
+                   strides=(2,2),
+                   filters=64,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=64,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = BatchNormalization()(x)
+        x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x) 
 
         x = Flatten()(x)
+        x = Dense(1024, activation='relu')(x)
+        x = Dense(1024, activation='relu')(x)
+
         out_actions = Dense(act_dim, activation='softmax', name='output')(x)
 
         model = Model(inputs=[state_input, advantage, old_prediction], outputs=[out_actions])
@@ -70,7 +92,7 @@ class Actor(Agent):
     #     return K.function([self.model.input, self.action_pl, self.advantages_pl], [], updates=updates)
 
     def save(self, path):
-        self.model.save_weights(path + '_actor.h5')
+        self.model.save(path)
 
     def load_weights(self, path):
         self.model.load_weights(path)

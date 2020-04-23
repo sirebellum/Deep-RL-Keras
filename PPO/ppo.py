@@ -21,7 +21,7 @@ cumulative_reward = 0
 episode = 0
 
 import wandb
-def evaluate(episodic_reward, epsilon):
+def evaluate(episodic_reward):
   '''
   Takes in the reward for an episode, calculates the cumulative_avg_reward
     and logs it in wandb. If episode > 100, stops logging scores to wandb.
@@ -46,8 +46,6 @@ def evaluate(episodic_reward, epsilon):
 
   # log cumulative_avg_reward over all episodes played so far
   wandb.log({'cumulative_avg_reward': cumulative_avg_reward})
-
-  wandb.log({'epsilon': epsilon})
 
 class PPO:
     """ Actor-Critic Main Algorithm
@@ -124,6 +122,9 @@ class PPO:
             self.observation = observation
 
             if done:
+                if len(batch[0]) == 0:
+                    evaluate(sum(self.reward))
+
                 self.transform_reward()
                 if self.val is False:
                     for i in range(len(tmp_batch[0])):
@@ -186,18 +187,11 @@ class PPO:
             tqdm_e.update(self.episode - self.last_ep_recorded)
             self.last_ep_recorded = self.episode
 
-            if e%10 == 0:
-                evaluate(cumul_reward, self.epsilon)
-
         tqdm_e.close()
         return self.batch_rewards, self.actor_losses, self.critic_losses
 
-
-
-    def save_weights(self, path):
-        path += '_LR_{}'.format(self.lr)
+    def save(self, path):
         self.actor.save(path)
-        self.critic.save(path)
 
     def load_weights(self, path_actor, path_critic):
         self.critic.load_weights(path_critic)
