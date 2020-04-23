@@ -30,7 +30,7 @@ from wandb.keras import WandbCallback
 # initialize a new wandb run
 wandb.init(project="qualcomm")
 # define hyperparameters
-wandb.config.episodes = 50000
+wandb.config.episodes = 500000
 wandb.config.batch_size = 32
 wandb.config.learning_rate = 1e-7
 input_size = (32,32)
@@ -60,7 +60,7 @@ def parse_args(args):
     parser.add_argument('--batch_size', type=int, default=wandb.config.batch_size, help="Batch size (experience replay)")
     parser.add_argument('--consecutive_frames', type=int, default=4, help="Number of consecutive frames (action repeat)")
     parser.add_argument('--training_interval', type=int, default=wandb.config.batch_size, help="Network training frequency")
-    parser.add_argument('--n_threads', type=int, default=16, help="Number of threads (A3C)")
+    parser.add_argument('--n_threads', type=int, default=64, help="Number of threads (A3C)")
     #
     parser.add_argument('--gather_stats', dest='gather_stats', action='store_true',help="Compute Average reward per episode (slower)")
     parser.add_argument('--render', dest='render', action='store_true', help="Render environment while training")
