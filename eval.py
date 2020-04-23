@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/340pog53"
+run_path="joshherr/qualcomm/3nq7zi1m"
 
 # import wandb
 import wandb
@@ -115,8 +115,6 @@ def evaluate(episodic_reward, reset=False):
 from numpy.random import seed
 from tensorflow import set_random_seed
 
-history = 4
-
 args = sys.argv[1:]
 args = parse_args(args)
 
@@ -160,8 +158,8 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
 
       action = agent.predict(np.expand_dims(state, axis=0))
 
-      #action = np.argmax(action)
-      action = np.random.choice(np.arange(action_dim), p=action[0])
+      action = np.argmax(action)
+      #action = np.random.choice(np.arange(action_dim), p=action[0])
 
       # perform the action and fetch next state, reward
       state, reward, done, _ = env.step(action)
