@@ -54,7 +54,7 @@ class PPO:
     """
 
     def __init__(self, act_dim, env_dim, k, gamma = 0.99, lr = 0.0001, 
-                loss_clipping=0.2, noise=1.0, entropy_loss=5e-3, is_eval=False):
+                loss_clipping=0.2, noise=1.0, entropy_loss=5e-1, is_eval=False):
         """ Initialization
         """
         # PPO Params
@@ -126,6 +126,7 @@ class PPO:
             if done:
                 if len(batch[0]) == 0:
                     evaluate(sum(self.reward))
+                    wandb.log({'Confidence': np.amax(predicted_action)})
 
                 self.transform_reward()
                 if self.val is False:

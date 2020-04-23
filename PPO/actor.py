@@ -23,31 +23,47 @@ class Actor(Agent):
 
 
     def build_actor(self, env_dim, act_dim, lr, loss_clipping, entropy_loss):
-        HIDDEN_SIZE = 128
-        NUM_LAYERS = 2
         state_input = Input(shape=(*env_dim,))
         advantage = Input(shape=(1,))
         old_prediction = Input(shape=(act_dim,))
 
         x = Conv2D(kernel_size=(8,8),
                    strides=(4,4),
-                   filters=32,
-                   activation = 'relu',
-                   padding = 'same',
-                   kernel_regularizer=keras.regularizers.l2(0.01))(state_input)
-        x = Conv2D(kernel_size=(4,4),
-                   strides=(2,2),
                    filters=64,
                    activation = 'relu',
-                   padding = 'same',
-                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+                   padding = 'same')(state_input)
+        x = BatchNormalization()(x)
+        x = Conv2D(kernel_size=(4,4),
+                   strides=(2,2),
+                   filters=128,
+                   activation = 'relu',
+                   padding = 'same')(x)
         x = BatchNormalization()(x)
         x = Conv2D(kernel_size=(3,3),
                    strides=(1,1),
-                   filters=64,
+                   filters=128,
                    activation = 'relu',
-                   padding = 'same',
-                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+                   padding = 'same')(x)
+        x = BatchNormalization()(x)
+        x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x) 
+
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=128,
+                   activation = 'relu',
+                   padding = 'same')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=256,
+                   activation = 'relu',
+                   padding = 'same')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=256,
+                   activation = 'relu',
+                   padding = 'same')(x)
         x = BatchNormalization()(x)
         x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x) 
 
