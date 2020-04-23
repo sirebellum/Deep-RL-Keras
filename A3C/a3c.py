@@ -8,6 +8,8 @@ from tqdm import tqdm
 from keras.models import Model
 from keras import regularizers
 from keras.layers import Input, Dense, Flatten, Reshape
+from keras import backend as K
+from keras.models import load_model
 
 from .critic import Critic
 from .actor import Actor
@@ -17,11 +19,14 @@ from utils.continuous_environments import Environment
 from utils.networks import conv_block
 from utils.stats import gather_stats
 
+import tensorflow as tf
+import wandb
+
 class A3C:
     """ Asynchronous Actor-Critic Main Algorithm
     """
 
-    def __init__(self, act_dim, env_dim, k, gamma = 0.99, lr = 0.0001, is_atari=False, is_eval=False):
+    def __init__(self, act_dim, env_dim, k, args, gamma = 0.99, lr = 0.0001, is_atari=False):
         """ Initialization
         """
         # Environment and A3C parameters
@@ -32,7 +37,7 @@ class A3C:
             self.env_dim = (k,) + env_dim
         self.gamma = gamma
         self.lr = lr
-        self.is_eval = is_eval
+        self.is_eval = False
         # Create actor and critic networks
         self.shared = self.buildNetwork()
         self.actor = Actor(self.env_dim, act_dim, self.shared, lr)
@@ -40,36 +45,44 @@ class A3C:
         # Build optimizers
         self.a_opt = self.actor.optimizer()
         self.c_opt = self.critic.optimizer()
-        self.global_rewards = []
+
+        self.episode = 0
+
+        if args.load is not None:
+            # restore model
+            fname = "model.h5"
+            f_cname = "model.h5_critic.h5"
+            run_path = "joshherr/qualcomm/"+args.load
+
+            api = wandb.Api()
+            run = api.run(run_path)
+            local_path = None
+            with run.file(fname).download(replace=True) as f:
+              local_path = f.name
+            self.actor.load_weights(local_path)
+            with run.file(f_cname).download(replace=True) as f:
+              local_path = f.name
+            self.critic.load_weights(local_path)
 
     def buildNetwork(self):
         """ Assemble shared layers
         """
         inp = Input((self.env_dim))
-        # If we have an image, apply convolutional layers
-        if(len(self.env_dim) > 2):
-            # Images
-            x = Reshape((self.env_dim[1], self.env_dim[2], -1))(inp)
-            x = conv_block(x, 32, (2, 2))
-            x = conv_block(x, 32, (2, 2))
-            x = Flatten()(x)
-        elif(len(self.env_dim)==2):
-            # 2D Inputs
-            x = Flatten()(inp)
-            x = Dense(64, activation='relu')(x)
-            x = Dense(128, activation='relu')(x)
-        else:
-            # 1D Inputs
-            x = Dense(64, activation='relu')(inp)
-            x = Dense(128, activation='relu')(x)
+        x = Reshape(self.env_dim)(inp)
+        x = conv_block(x, 32, (2, 2))
+        x = conv_block(x, 64, (2, 2))
+        x = conv_block(x, 128, (2, 2))
+        x = conv_block(x, 256, (2, 2))
+        x = Flatten()(x)
         return Model(inp, x)
 
     def policy_action(self, s):
         """ Use the actor's network to predict the next action to take, using the policy
         """
+        a_vect = self.actor.predict(s).ravel()
         if self.is_eval:
-            return np.argmax(self.actor.predict(s).ravel())
-        return np.random.choice(np.arange(self.act_dim), 1, p=self.actor.predict(s).ravel())[0]
+            return np.argmax(a_vect)
+        return np.random.choice(np.arange(self.act_dim), 1, p=a_vect)[0], a_vect
 
     def discount(self, r, done, s):
         """ Compute the gamma-discounted rewards over an episode
@@ -80,29 +93,27 @@ class A3C:
             discounted_r[t] = cumul_r
         return discounted_r
 
-    def train_models(self, states, actions, rewards, done):
+    def train_models(self, states, actions, rewards, done, a_vect):
         """ Update actor and critic networks from experience
         """
         # Compute discounted rewards and Advantage (TD. Error)
         discounted_rewards = self.discount(rewards, done, states[-1])
         state_values = self.critic.predict(np.array(states))
         advantages = discounted_rewards - np.reshape(state_values, len(state_values))
-        # Networks optimization
-        self.a_opt([states, actions, advantages])
-        self.c_opt([states, discounted_rewards])
 
-    def train(self, env, args, summary_writer):
+        # Networks optimization
+        self.a_opt([np.array(states), np.array(actions), advantages])
+        self.episode += 1
+
+        if self.episode % 10 == 0:
+            self.c_opt([np.array(states), discounted_rewards])
+
+    def train(self, env, args):
 
         # Instantiate one environment per thread
-        if(args.is_atari):
-            envs = [AtariEnvironment(args) for i in range(args.n_threads)]
-            state_dim = envs[0].get_state_size()
-            action_dim = envs[0].get_action_size()
-        else:
-            envs = [Environment(gym.make(args.env), args.consecutive_frames) for i in range(args.n_threads)]
-            [e.reset() for e in envs]
-            state_dim = envs[0].get_state_size()
-            action_dim = gym.make(args.env).action_space.n
+        envs = [AtariEnvironment(args, self.env_dim) for i in range(args.n_threads)]
+        state_dim = envs[0].get_state_size()
+        action_dim = envs[0].get_action_size()
 
         # Create threads
         tqdm_e = tqdm(range(int(args.nb_episodes)), desc='Score', leave=True, unit=" episodes")
@@ -115,9 +126,9 @@ class A3C:
                     envs[i],
                     action_dim,
                     args.training_interval,
-                    summary_writer,
                     tqdm_e,
-                    args.render)) for i in range(args.n_threads)]
+                    args.render,
+                    i)) for i in range(args.n_threads)]
 
         for t in threads:
             t.start()
@@ -126,11 +137,9 @@ class A3C:
             [t.join() for t in threads]
         except KeyboardInterrupt:
             print("Exiting all threads...")
-            
-        return self.global_rewards
+        return None
 
-    def save_weights(self, path):
-        path += '_LR_{}'.format(self.lr)
+    def save(self, path):
         self.actor.save(path)
         self.critic.save(path)
 

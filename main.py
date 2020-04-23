@@ -20,7 +20,8 @@ from utils.continuous_environments import Environment
 from utils.networks import get_session
 
 gpu_options = tf.GPUOptions(allow_growth=True, per_process_gpu_memory_fraction=1.0)
-config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 16}, gpu_options=gpu_options) 
+config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 16}, gpu_options=gpu_options)
+tf.compat.v1.disable_eager_execution()
 
 # import wandb
 import wandb
@@ -31,7 +32,7 @@ wandb.init(project="qualcomm")
 # define hyperparameters
 wandb.config.episodes = 50000
 wandb.config.batch_size = 32
-wandb.config.learning_rate = 1e-4
+wandb.config.learning_rate = 1e-8
 input_size = (32,32)
 export_path = os.path.join(wandb.run.dir, "model.h5")
 
@@ -50,7 +51,7 @@ def parse_args(args):
     """
     parser = argparse.ArgumentParser(description='Trazining parameters')
     #
-    parser.add_argument('--type', type=str, default='DDQN',help="Algorithm to train from {A2C, A3C, DDQN, DDPG}")
+    parser.add_argument('--type', type=str, default='A3C',help="Algorithm to train from {A2C, A3C, DDQN, DDPG}")
     parser.add_argument('--is_atari', dest='is_atari', action='store_false', help="Atari Environment")
     parser.add_argument('--with_PER', dest='with_per', action='store_true', help="Use Prioritized Experience Replay (DDQN + PER)")
     parser.add_argument('--dueling', dest='dueling', action='store_true', help="Use a Dueling Architecture (DDQN)")

@@ -2,7 +2,7 @@ import numpy as np
 import keras.backend as K
 
 from keras.models import Model, load_model
-from keras.layers import Input, Dense, Flatten
+from keras.layers import Input, Dense, Flatten, Dropout, CuDNNGRU, Reshape
 from keras.optimizers import Adam
 from .agent import Agent
 
@@ -20,19 +20,22 @@ class Critic(Agent):
     def addHead(self, network):
         """ Assemble Critic network to predict value of each state
         """
-        x = Dense(128, activation='relu')(network.output)
-        out = Dense(1, activation='linear')(x)
-        return Model(network.input, out)
+        x = Reshape((256, -1))(network.output)
+        x = Dense(1024)(x)
+        x = Dense(1024)(x)
+        x = Flatten()(x)
+        self.out = Dense(1, activation='softmax')(x)
+        return Model(network.input, self.out)
 
     def optimizer(self):
         """ Critic Optimization: Mean Squared Error over discounted rewards
         """
         critic_loss = K.mean(K.square(self.discounted_r - self.model.output))
         updates = self.rms_optimizer.get_updates(self.model.trainable_weights, [], critic_loss)
-        return K.function([self.model.input, self.discounted_r], [], updates=updates)
+        return K.function([self.model.input, self.discounted_r], [self.out], updates=updates)
 
     def save(self, path):
-        self.model.save_weights(path + '_critic.h5')
+        self.model.save(path+"_critic.h5")
 
     def load_weights(self, path):
         self.model.load_weights(path)
