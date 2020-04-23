@@ -2,11 +2,12 @@ import numpy as np
 import tensorflow as tf
 from keras.layers import Conv2D, MaxPooling2D
 
-def get_session():
+def get_session(config=None):
     """ Limit session memory usage
     """
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    if config is None:
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
     return tf.Session(config=config)
 
 def tfSummary(tag, val):

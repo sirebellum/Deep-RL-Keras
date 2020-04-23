@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/g64zsth9"
+run_path="joshherr/qualcomm/1i3on99s"
 
 # import wandb
 import wandb
@@ -110,8 +110,8 @@ env = gym.make('SpaceInvaders-v0')
 # record a video of the game using wrapper
 env = gym.wrappers.Monitor(env, './video', force=True)
 env = MaxAndSkipEnv(env)
-env = FrameStack(env, history)
 env = WarpFrame(env)
+env = FrameStack(env, history)
 
 action_size = env.action_space.n
 print("Actions available(%d): %r"%(env.action_space.n, env.env.get_action_meanings()))

@@ -2,7 +2,7 @@ import numpy as np
 import keras.backend as K
 
 from keras.models import Model, load_model
-from keras.layers import Input, Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D
+from keras.layers import Input, Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D, Reshape, Concatenate, Lambda
 from keras.optimizers import Adam
 from .agent import Agent
 from .ppo_loss import proximal_policy_optimization_loss
@@ -29,19 +29,88 @@ class Actor(Agent):
         advantage = Input(shape=(1,))
         old_prediction = Input(shape=(act_dim,))
 
-        x = Conv2D(kernel_size=(8,8),
-                   strides=(4,4),
-                   filters=32,
-                   activation = 'relu',
-                   padding = 'same',
-                   kernel_regularizer=keras.regularizers.l2(0.01))(state_input)
-        x = Conv2D(kernel_size=(4,4),
-                   strides=(2,2),
-                   filters=64,
-                   activation = 'relu',
-                   padding = 'same',
-                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
-        x = BatchNormalization()(x)
+        inputs = []
+        for s in range(env_dim[-1]):
+          inputs.append(Reshape((env_dim[0], env_dim[1], 1)) \
+                          (Lambda(lambda x: x[:,:,:,s])(state_input)))
+        
+        ### Create feature extraction network for each history image
+        outs = []
+        for inp in inputs:
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=8,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(inp)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=16,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=16,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
+
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=16,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=32,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=32,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
+
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=32,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=64,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = Conv2D(kernel_size=(3,3),
+                     strides=(1,1),
+                     filters=64,
+                     activation = 'relu',
+                     padding = 'same',
+                     kernel_regularizer=keras.regularizers.l2(0.01))(x)
+          x = BatchNormalization()(x)
+          x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
+
+          outs.append(Reshape((env_dim[0]//2//2//2,
+                               env_dim[1]//2//2//2,-1))(x))
+
+        ### Concatenate history network outputs
+        x = Concatenate(axis=-1)(outs)
         x = Conv2D(kernel_size=(3,3),
                    strides=(1,1),
                    filters=64,
@@ -49,11 +118,27 @@ class Actor(Agent):
                    padding = 'same',
                    kernel_regularizer=keras.regularizers.l2(0.01))(x)
         x = BatchNormalization()(x)
-        x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x) 
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=128,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=128,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = BatchNormalization()(x)
+        x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)        
 
         x = Flatten()(x)
-        x = Dense(1024, activation='relu')(x)
-        x = Dense(1024, activation='relu')(x)
+        x = Dense(1024, activation="relu",
+                  kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = Dense(1024, activation="relu",
+                  kernel_regularizer=keras.regularizers.l2(0.01))(x)
 
         out_actions = Dense(act_dim, activation='softmax', name='output')(x)
 

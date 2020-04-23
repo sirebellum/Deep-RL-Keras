@@ -15,14 +15,14 @@ from DDQN.ddqn import DDQN
 from DDPG.ddpg import DDPG
 from PPO.ppo import PPO
 
-from keras.backend.tensorflow_backend import set_session
+from tensorflow.compat.v1.keras.backend import set_session
 from keras.utils import to_categorical
 
 from utils.atari_environment import AtariEnvironment
 from utils.continuous_environments import Environment
 from utils.networks import get_session
 
-gpu_options = tf.GPUOptions(allow_growth=True, per_process_gpu_memory_fraction=1.0)
+gpu_options = tf.GPUOptions(allow_growth=True, per_process_gpu_memory_fraction=0.4)
 config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 16}, gpu_options=gpu_options) 
 
 # import wandb0
@@ -61,7 +61,7 @@ def parse_args(args):
     parser.add_argument('--env', type=str, default='SpaceInvadersNoFrameskip-v0',help="OpenAI Gym Environment")
     #
     parser.add_argument('--load', type=str, default=None,help="OpenAI Gym Environment")
-    parser.add_argument('--buffer_size', type=int, default=10000,help="Number of samples to store")
+    parser.add_argument('--buffer_size', type=int, default=2048,help="Number of samples to store")
     #
     #
     parser.set_defaults(render=False)
@@ -73,6 +73,8 @@ def main(args=None):
         if args is None:
             args = sys.argv[1:]
         args = parse_args(args)
+
+        set_session(get_session(config=config))
 
         # Atari Environment Wrapper
         env = AtariEnvironment(args)
