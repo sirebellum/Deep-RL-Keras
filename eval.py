@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/i9fuqno5"
+run_path="joshherr/qualcomm/340pog53"
 
 # import wandb
 import wandb
@@ -17,6 +17,10 @@ import tensorflow as tf
 from collections import deque
 from datetime import datetime
 import keras
+
+import sys
+from utils.atari_environment import AtariEnvironment
+import argparse
 
 gpu_options = tf.GPUOptions(allow_growth=False, per_process_gpu_memory_fraction=0.2)
 config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 12}, gpu_options=gpu_options) 
@@ -52,6 +56,19 @@ import tensorflow as tf
 
 from gym import spaces
 from utils.atari_wrappers import FrameStack, WarpFrame, MaxAndSkipEnv
+
+def parse_args(args):
+    """ Parse arguments from command line input
+    """
+    parser = argparse.ArgumentParser(description='Trazining parameters')
+    #
+    parser.add_argument('--is_atari', dest='is_atari', action='store_false', help="Atari Environment")
+    #
+    parser.add_argument('--consecutive_frames', type=int, default=4, help="Number of consecutive frames (action repeat)")
+    parser.add_argument('--env', type=str, default='SpaceInvaders-v0',help="OpenAI Gym Environment")
+    #
+    parser.set_defaults(render=False)
+    return parser.parse_args(args)
 
 # **** Caution: Do not modify this cell ****
 # initialize total reward across episodes
@@ -102,13 +119,13 @@ from tensorflow import set_random_seed
 
 history = 4
 
-# initialize environment
-env = gym.make('SpaceInvaders-v0')
-# record a video of the game using wrapper
-env = gym.wrappers.Monitor(env, './video', force=True)
-env = MaxAndSkipEnv(env)
-env = WarpFrame(env)
-env = FrameStack(env, history)
+args = sys.argv[1:]
+args = parse_args(args)
+
+env = AtariEnvironment(args, test=True)
+#env = gym.wrappers.Monitor(env, './video', force=True)
+state_dim = env.get_state_size()
+action_dim = env.get_action_size()
 
 action_size = env.action_space.n
 print("Actions available(%d): %r"%(env.action_space.n, env.env.get_action_meanings()))
@@ -136,7 +153,6 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
 
     # play a random game
     state = env.reset()
-    state = state
 
     done = False
     while not done:
@@ -144,16 +160,14 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
 
       sreward = 0
       reward = 0
+
       action = agent.predict(np.expand_dims(state, axis=0))
 
       #action = np.argmax(action)
-      action = np.random.choice(6, p=action[0])
+      action = np.random.choice(np.arange(action_dim), p=action[0])
 
       # perform the action and fetch next state, reward
-      next_state, reward, done, _ = env.step(action)
-
-      next_state = next_state
-      state = next_state
+      state, reward, done, _ = env.step(action)
 
       episodic_reward += reward
     
