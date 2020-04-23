@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/1i3on99s"
+run_path="joshherr/qualcomm/31epi0oh"
 
 # import wandb
 import wandb
@@ -101,9 +101,6 @@ from numpy.random import seed
 from tensorflow import set_random_seed
 
 history = 4
-height = 84
-width = 84
-input_shape = (height,width)
 
 # initialize environment
 env = gym.make('SpaceInvaders-v0')
