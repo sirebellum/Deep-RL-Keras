@@ -15,6 +15,8 @@ from utils.stats import gather_stats
 
 from .ppo_loss import proximal_policy_optimization_loss 
 
+from wandb.keras import WandbCallback
+
 # **** Caution: Do not modify this cell ****
 # initialize total reward across episodes
 cumulative_reward = 0
@@ -172,7 +174,7 @@ class PPO:
             advantage = reward - pred_values
 
             # Train Actor and Critic
-            actor_loss = self.actor.fit([obs, advantage, old_prediction], [action], batch_size=args.batch_size, shuffle=True, epochs=args.epochs, verbose=False)
+            actor_loss = self.actor.fit([obs, advantage, old_prediction], [action], batch_size=args.batch_size, shuffle=True, epochs=args.epochs, verbose=False, callbacks=[WandbCallback(save_model=False)])
             critic_loss = self.critic.fit([obs], [reward], batch_size=args.batch_size, shuffle=True, epochs=args.epochs, verbose=False)
 
             # Get info
