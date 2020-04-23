@@ -22,7 +22,7 @@ from utils.atari_environment import AtariEnvironment
 from utils.continuous_environments import Environment
 from utils.networks import get_session
 
-gpu_options = tf.GPUOptions(allow_growth=True, per_process_gpu_memory_fraction=0.4)
+gpu_options = tf.GPUOptions(allow_growth=True, per_process_gpu_memory_fraction=1.0)
 config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 16}, gpu_options=gpu_options) 
 
 # import wandb0
@@ -32,8 +32,8 @@ from wandb.keras import WandbCallback
 # initialize a new wandb run
 wandb.init(project="qualcomm")
 # define hyperparameters
-wandb.config.episodes = 50000
-wandb.config.batch_size = 256
+wandb.config.episodes = 500000
+wandb.config.batch_size = 128
 export_path = os.path.join(wandb.run.dir, "model.h5")
 
 gym.logger.set_level(40)
@@ -58,7 +58,7 @@ def parse_args(args):
     #
     parser.add_argument('--gather_stats', dest='gather_stats', action='store_true',help="Compute Average reward per episode (slower)")
     parser.add_argument('--render', dest='render', action='store_true', help="Render environment while training")
-    parser.add_argument('--env', type=str, default='SpaceInvadersNoFrameskip-v0',help="OpenAI Gym Environment")
+    parser.add_argument('--env', type=str, default='SpaceInvaders-v0',help="OpenAI Gym Environment")
     #
     parser.add_argument('--load', type=str, default=None,help="OpenAI Gym Environment")
     parser.add_argument('--buffer_size', type=int, default=10000,help="Number of samples to store")
