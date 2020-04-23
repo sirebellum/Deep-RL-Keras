@@ -33,7 +33,7 @@ from wandb.keras import WandbCallback
 wandb.init(project="qualcomm")
 # define hyperparameters
 wandb.config.episodes = 50000
-wandb.config.batch_size = 32
+wandb.config.batch_size = 256
 export_path = os.path.join(wandb.run.dir, "model.h5")
 
 gym.logger.set_level(40)
@@ -61,7 +61,7 @@ def parse_args(args):
     parser.add_argument('--env', type=str, default='SpaceInvadersNoFrameskip-v0',help="OpenAI Gym Environment")
     #
     parser.add_argument('--load', type=str, default=None,help="OpenAI Gym Environment")
-    parser.add_argument('--buffer_size', type=int, default=2048,help="Number of samples to store")
+    parser.add_argument('--buffer_size', type=int, default=10000,help="Number of samples to store")
     #
     #
     parser.set_defaults(render=False)
@@ -91,7 +91,7 @@ def main(args=None):
         elif(args.type=="DDPG"):
             algo = DDPG(action_dim, state_dim, act_range, args.consecutive_frames)
         elif(args.type=="PPO"):
-            algo = PPO(action_dim, state_dim, args.consecutive_frames)
+            algo = PPO(action_dim, state_dim, args.consecutive_frames, lr=1e-5)
 
         # Train
         stats = algo.train(env, args)

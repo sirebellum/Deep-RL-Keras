@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/31epi0oh"
+run_path="joshherr/qualcomm/i9fuqno5"
 
 # import wandb
 import wandb
@@ -146,7 +146,8 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
       reward = 0
       action = agent.predict(np.expand_dims(state, axis=0))
 
-      action = np.argmax(action)
+      #action = np.argmax(action)
+      action = np.random.choice(6, p=action[0])
 
       # perform the action and fetch next state, reward
       next_state, reward, done, _ = env.step(action)
