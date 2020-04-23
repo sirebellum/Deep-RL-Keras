@@ -124,11 +124,11 @@ class ClipRewardEnv(gym.RewardWrapper):
         return np.sign(reward)
 
 class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env):
+    def __init__(self, env, input_size):
         """Warp frames to 84x84 as done in the Nature paper and later work."""
         gym.ObservationWrapper.__init__(self, env)
-        self.width = 48
-        self.height = 48
+        self.width = input_size[0]
+        self.height = input_size[1]
         self.observation_space = spaces.Box(low=0, high=255, shape=(self.height, self.width, 1))
 
     def observation(self, frame):
@@ -193,14 +193,14 @@ def make_atari(env_id):
     env = MaxAndSkipEnv(env, skip=4)
     return env
 
-def wrap_deepmind(env, k, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
+def wrap_deepmind(env, k, input_size, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
     """Configure environment for DeepMind-style Atari.
     """
     if episode_life and clip_rewards:
         env = EpisodicLifeEnv(env)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
-    env = WarpFrame(env)
+    env = WarpFrame(env, input_size)
     if scale:
         env = ScaledFloatFrame(env)
     if clip_rewards:
@@ -209,7 +209,7 @@ def wrap_deepmind(env, k, episode_life=True, clip_rewards=True, frame_stack=Fals
         env = FrameStack(env, k)
     return env
 
-def make_wrap_atari(env_id, k, clip_rewards=True):
+def make_wrap_atari(env_id, k, input_size, clip_rewards=True):
     #env = gym.make(env_id)
     env = make_atari(env_id)
-    return wrap_deepmind(env, k, clip_rewards=clip_rewards, frame_stack=True, scale=True)
+    return wrap_deepmind(env, k, input_size, clip_rewards=clip_rewards, frame_stack=True, scale=True,)

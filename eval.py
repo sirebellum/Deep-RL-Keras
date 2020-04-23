@@ -118,7 +118,7 @@ from tensorflow import set_random_seed
 args = sys.argv[1:]
 args = parse_args(args)
 
-env = AtariEnvironment(args, test=True)
+env = AtariEnvironment(args, (32,32), test=True)
 state_dim = env.get_state_size()
 action_dim = env.get_action_size()
 

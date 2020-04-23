@@ -9,43 +9,176 @@ from random import random, randrange
 from utils.memory_buffer import MemoryBuffer
 from utils.networks import tfSummary
 from utils.stats import gather_stats
+from collections import deque
+
+import cv2
+import wandb
+import base64
+import glob
+import io
+
+from math import log
+from scipy.stats import entropy
+
+from multiprocessing import Pool
+
+# **** Caution: Do not modify this cell ****
+# initialize total reward across episodes
+cumulative_reward = 0
+episode = 0
+
+def evaluate(episodic_reward, epsilon):
+  '''
+  Takes in the reward for an episode, calculates the cumulative_avg_reward
+    and logs it in wandb. If episode > 100, stops logging scores to wandb.
+    Called after playing each episode. See example below.
+
+  Arguments:
+    episodic_reward - reward received after playing current episode
+  '''
+  global episode
+  global cumulative_reward
+  episode += 1
+
+  # log total reward received in this episode to wandb
+  wandb.log({'episodic_reward': episodic_reward})
+
+  # add reward from this episode to cumulative_reward
+  cumulative_reward += episodic_reward
+
+  # calculate the cumulative_avg_reward
+  # this is the metric your models will be evaluated on
+  cumulative_avg_reward = cumulative_reward/episode
+
+  # log cumulative_avg_reward over all episodes played so far
+  wandb.log({'cumulative_avg_reward': cumulative_avg_reward})
+
+  wandb.log({'epsilon': epsilon})
+
+def init_buffer(env):
+    data = []
+    # Init buffer
+    while len(data) < 1000:
+        done = False
+        position = deque(maxlen=50); position.append(0)
+        old_state = env.reset()
+
+        # Initialize with a right bias
+        for s in range(np.random.randint(0,50)):
+            old_state, r, done, _ = env.step(4)
+            if done:
+                done = False
+                old_state = env.reset()
+
+        while not done:
+            # Actor picks a random
+            a = np.random.randint(6)
+
+            # Retrieve new state, reward, and whether the state is terminal
+            new_state, r, done, _ = env.step(a)
+
+            # Memorize for experience replay
+            if r == 0: r_r = 0
+            elif r > 0: r_r = 1
+            else: r_r = -1
+
+            # Reward for not staying in place
+            if a == 2: position.append(position[-1]+1)
+            if a == 3: position.append(position[-1]-1)
+            r_w = abs(max(position) - min(position))/10000
+            r_r += r_w
+
+            data.append([old_state, a, r_r, done, new_state])
+
+            old_state = new_state
+
+    env.close()
+    return data
 
 class DDQN:
     """ Deep Q-Learning Main Algorithm
     """
 
-    def __init__(self, action_dim, state_dim, args):
+    def __init__(self, action_dim, state_dim, args, input_size, hp, export_path, env):
         """ Initialization
         """
+
+        self.export_path = export_path
+
         # Environment and DDQN parameters
         self.with_per = args.with_per
         self.action_dim = action_dim
         self.state_dim = (args.consecutive_frames,) + state_dim
         #
-        self.lr = 2.5e-4
-        self.gamma = 0.95
-        self.epsilon = 0.8
-        self.epsilon_decay = 0.99
+        self.lr = hp["lr"]
+        self.gamma = 0.99
+        # Exploration parameters for epsilon greedy strategy
+        self.explore_start = self.epsilon = 0.9 # exploration probability at start
+        self.explore_stop = 0.1                 # minimum exploration probability
+        self.decay_rate = 0.00001             # exponential decay rate for exploration prob
+
         self.buffer_size = 20000
-        #
-        if(len(state_dim) < 3):
-            self.tau = 1e-2
-        else:
-            self.tau = 1.0
+        self.input_size = input_size
+
+        self.video_dir = args.video_dir
+
         # Create actor and critic networks
-        self.agent = Agent(self.state_dim, action_dim, self.lr, self.tau, args.dueling)
+        self.agent = Agent(self.state_dim, action_dim, self.lr, args.dueling, input_size, args.load)
         # Memory Buffer for Experience Replay
         self.buffer = MemoryBuffer(self.buffer_size, args.with_per)
+
+        try:
+            # Init buffer
+            threads = 16
+            p = Pool(processes=threads)
+            while self.buffer.size() < self.buffer_size:
+
+                # Set up threaded frame accumulation
+                buffers = p.map_async(init_buffer, [env]*threads)
+                datas = buffers.get()
+
+                # Record in global memory
+                for data in datas:
+                    for entry in data:
+                        self.memorize(*entry)
+
+                # Mitigate memory leak
+                del buffers
+                del datas
+
+                print("Buffer size: {}".format(self.buffer.size()))
+
+        except KeyboardInterrupt:
+            p.close()
+            p.join()
+        p.close()
+        p.join()
+
+        # Train on pure randomness for a while
+        tqdm_e = tqdm(range(5000), desc='Score', leave=True, unit=" episodes")
+        for e in tqdm_e:
+            record = False
+            if e % 100 == 0: record = True
+            self.train_agent(args.batch_size, record)
+
+            if e%1000 == 0:
+                self.agent.transfer_weights()
+
+            # Display score
+            tqdm_e.refresh()
+
 
     def policy_action(self, s):
         """ Apply an espilon-greedy policy to pick next action
         """
-        if random() <= self.epsilon:
-            return randrange(self.action_dim)
+        if np.random.random() <= self.epsilon:
+            return np.random.randint(self.action_dim)
         else:
-            return np.argmax(self.agent.predict(s)[0])
+            a_vect = self.agent.predict(s)[0]
+            #return np.random.choice(np.arange(self.action_dim), 1, p=a_vect)[0]
+            return np.argmax(a_vect)
 
-    def train_agent(self, batch_size):
+    def train_agent(self, batch_size, record=False):
         """ Train Q-network on batch sampled from the buffer
         """
         # Sample experience from memory buffer (optionally with PER)
@@ -63,57 +196,86 @@ class DDQN:
             else:
                 next_best_action = np.argmax(next_q[i,:])
                 q[i, a[i]] = r[i] + self.gamma * q_targ[i, next_best_action]
-            if(self.with_per):
-                # Update PER Sum Tree
-                self.buffer.update(idx[i], abs(old_q - q[i, a[i]]))
+
         # Train on batch
-        self.agent.fit(s, q)
-        # Decay epsilon
-        self.epsilon *= self.epsilon_decay
+        self.agent.fit(s, q, record=record)
 
-
-    def train(self, env, args, summary_writer):
+    def train(self, env, args):
         """ Main DDQN Training Algorithm
         """
 
         results = []
         tqdm_e = tqdm(range(args.nb_episodes), desc='Score', leave=True, unit=" episodes")
 
+        decay_step = 0
+        self.t = 0
         for e in tqdm_e:
             # Reset episode
-            time, cumul_reward, done  = 0, 0, False
+            time, cumul_reward, cumul_r_r, done  = 0, 0, 0, False
+            position = deque(maxlen=50); position.append(0)
             old_state = env.reset()
 
             while not done:
-                if args.render: env.render()
+                decay_step += 1
+                env.render()
                 # Actor picks an action (following the policy)
                 a = self.policy_action(old_state)
+
                 # Retrieve new state, reward, and whether the state is terminal
                 new_state, r, done, _ = env.step(a)
+
                 # Memorize for experience replay
-                self.memorize(old_state, a, r, done, new_state)
+                if r == 0: r_r = 0
+                elif r > 0: r_r = 1
+                else: r_r = -1
+
+                # Reward for not staying in place
+                if a == 2: position.append(position[-1]+1)
+                if a == 3: position.append(position[-1]-1)
+                r_w = abs(max(position) - min(position))/10000
+                r_r += r_w
+
+                self.memorize(old_state, a, r_r, done, new_state)
+
                 # Update current state
                 old_state = new_state
                 cumul_reward += r
+                cumul_r_r += r_r
                 time += 1
-                # Train DDQN and transfer weights to target network
-                if(self.buffer.size() > args.batch_size):
+
+                self.epsilon = self.explore_stop + (self.explore_start - self.explore_stop) * np.exp(-self.decay_rate * decay_step)
+
+                # Train DDQN
+                if(self.buffer.size() > args.batch_size) and self.t%4 == 0:
                     self.train_agent(args.batch_size)
+                self.t+=1
+
+                if self.t%10000 == 0:
                     self.agent.transfer_weights()
 
-            # Gather stats every episode for plotting
-            if(args.gather_stats):
-                mean, stdev = gather_stats(self, env)
-                results.append([e, mean, stdev])
+            if e % 50 == 0:
+                self.agent.save("./model.h5")
+                wandb.save("./model.h5")
 
-            # Export results for Tensorboard
-            score = tfSummary('score', cumul_reward)
-            summary_writer.add_summary(score, global_step=e)
-            summary_writer.flush()
+            if e%10 == 0:
+                # wandb logging
+                evaluate(cumul_reward, self.epsilon)
+                self.train_agent(args.batch_size, record=True)
 
             # Display score
-            tqdm_e.set_description("Score: " + str(cumul_reward))
+            text = "Score: {}, Fake Score: {:.2f}".format(str(cumul_reward), cumul_r_r)
+            tqdm_e.set_description(text)
             tqdm_e.refresh()
+
+            # render gameplay video
+            if (e %50 == 0):
+              mp4list = glob.glob('video/'+self.video_dir+'/*.mp4')
+              if len(mp4list) > 0:
+                mp4 = mp4list[-1]
+                video = io.open(mp4, 'r+b').read()
+                encoded = base64.b64encode(video)
+                # log gameplay video in wandb
+                wandb.log({"gameplays": wandb.Video(mp4, fps=4, format="gif")})
 
         return results
 
@@ -131,10 +293,7 @@ class DDQN:
             td_error = 0
         self.buffer.memorize(state, action, reward, done, new_state, td_error)
 
-    def save_weights(self, path):
-        path += '_LR_{}'.format(self.lr)
-        if(self.with_per):
-            path += '_PER'
+    def save(self, path):
         self.agent.save(path)
 
     def load_weights(self, path):

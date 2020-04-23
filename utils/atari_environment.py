@@ -10,9 +10,9 @@ https://github.com/ShanHaoYu/Deep-Q-Network-Breakout/blob/master/environment.py
 """
 
 class AtariEnvironment(object):
-    def __init__(self, args, test=False):
+    def __init__(self, args, input_size, test=False):
         clip_rewards = not test
-        self.env = make_wrap_atari(args.env, args.consecutive_frames, clip_rewards)
+        self.env = make_wrap_atari(args.env, args.consecutive_frames, input_size, clip_rewards)
         self.action_space = self.env.action_space
         self.observation_space = self.env.observation_space
         self.consecutive_frames = args.consecutive_frames
