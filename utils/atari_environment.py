@@ -39,7 +39,7 @@ class AtariEnvironment(object):
         return self.env.action_space.n
 
     def get_state_size(self):
-        return 84, 84, self.consecutive_frames
+        return 48, 48, self.consecutive_frames
 
     def get_random_action(self):
         return self.action_space.sample()
