@@ -92,7 +92,6 @@ def init_buffer(env):
 
             old_state = new_state
 
-    env.close()
     return data
 
 class DDQN:
@@ -155,7 +154,7 @@ class DDQN:
         p.join()
 
         # Train on pure randomness for a while
-        tqdm_e = tqdm(range(5000), desc='Score', leave=True, unit=" episodes")
+        tqdm_e = tqdm(range(2000), desc='Score', leave=True, unit=" episodes")
         for e in tqdm_e:
             record = False
             if e % 100 == 0: record = True
@@ -175,7 +174,6 @@ class DDQN:
             return np.random.randint(self.action_dim)
         else:
             a_vect = self.agent.predict(s)[0]
-            #return np.random.choice(np.arange(self.action_dim), 1, p=a_vect)[0]
             return np.argmax(a_vect)
 
     def train_agent(self, batch_size, record=False):
@@ -246,7 +244,7 @@ class DDQN:
                 self.epsilon = self.explore_stop + (self.explore_start - self.explore_stop) * np.exp(-self.decay_rate * decay_step)
 
                 # Train DDQN
-                if(self.buffer.size() > args.batch_size) and self.t%4 == 0:
+                if(self.buffer.size() > args.batch_size) and self.t%2000 == 0:
                     self.train_agent(args.batch_size)
                 self.t+=1
 
@@ -257,7 +255,7 @@ class DDQN:
                 self.agent.save("./model.h5")
                 wandb.save("./model.h5")
 
-            if e%10 == 0:
+            if e%100 == 0:
                 # wandb logging
                 evaluate(cumul_reward, self.epsilon)
                 self.train_agent(args.batch_size, record=True)
