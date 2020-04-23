@@ -55,8 +55,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
 from gym import spaces
-from utils.atari_wrappers import FrameStack, WarpFrame, MaxAndSkipEnv
-
 def parse_args(args):
     """ Parse arguments from command line input
     """
@@ -123,7 +121,6 @@ args = sys.argv[1:]
 args = parse_args(args)
 
 env = AtariEnvironment(args, test=True)
-#env = gym.wrappers.Monitor(env, './video', force=True)
 state_dim = env.get_state_size()
 action_dim = env.get_action_size()
 
@@ -181,6 +178,7 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
     if i >= 99:
       break
 
+    '''
     # render gameplay video
     if (i %10 == 0):
       mp4list = glob.glob('video/*.mp4')
@@ -191,6 +189,6 @@ for seed_ in [10]:#, 50, 100, 200, 500]:
 
         # log gameplay video in wandb
         wandb.log({"gameplays": wandb.Video(mp4, fps=4, format="gif")})
-
+    '''
 
 print("Final score: ", np.mean(cumulative_avg_reward))
