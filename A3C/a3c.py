@@ -7,9 +7,10 @@ import numpy as np
 from tqdm import tqdm
 from keras.models import Model
 from keras import regularizers
-from keras.layers import Input, Dense, Flatten, Reshape
+from keras.layers import Input, Dense, Flatten, Reshape, Lambda, Concatenate, Conv2D, MaxPooling2D, BatchNormalization
 from keras import backend as K
 from keras.models import load_model
+import keras
 
 from .critic import Critic
 from .actor import Actor
@@ -69,10 +70,61 @@ class A3C:
         """
         inp = Input((self.env_dim))
         x = Reshape(self.env_dim)(inp)
-        x = conv_block(x, 32, (2, 2))
-        x = conv_block(x, 64, (2, 2))
-        x = conv_block(x, 128, (2, 2))
-        x = conv_block(x, 256, (2, 2))
+
+        # Break input into s images for each history window
+        inputs = []
+        for s in range(self.env_dim[-1]):
+          inputs.append(Reshape((self.env_dim[0], self.env_dim[1], 1)) \
+                          (Lambda(lambda x: x[:,:,:,s])(inp)))
+        
+        ### Create feature extraction network for each history image
+        outs = []
+        for i in inputs:
+            x = Conv2D(kernel_size=(8,8),
+                        strides=(4,4),
+                        filters=8,
+                        activation = 'relu',
+                        padding = 'same',
+                        kernel_regularizer=keras.regularizers.l2(0.01))(i)
+            x = Conv2D(kernel_size=(4,4),
+                       strides=(2,2),
+                       filters=16,
+                       activation = 'relu',
+                       padding = 'same',
+                       kernel_regularizer=keras.regularizers.l2(0.01))(x)
+            x = Conv2D(kernel_size=(3,3),
+                       strides=(1,1),
+                       filters=16,
+                       activation = 'relu',
+                       padding = 'same',
+                       kernel_regularizer=keras.regularizers.l2(0.01))(x)
+            x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
+
+            outs.append(Reshape((self.env_dim[0]//2//2//2,
+                                 self.env_dim[1]//2//2//2,-1))(x))
+
+        ### Concatenate history network outputs
+        x = Concatenate(axis=-1)(outs)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=32,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=64,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = Conv2D(kernel_size=(3,3),
+                   strides=(1,1),
+                   filters=64,
+                   activation = 'relu',
+                   padding = 'same',
+                   kernel_regularizer=keras.regularizers.l2(0.01))(x)
+        x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)      
+
         x = Flatten()(x)
         return Model(inp, x)
 

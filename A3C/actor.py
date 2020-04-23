@@ -28,10 +28,8 @@ class Actor(Agent):
     def addHead(self, network):
         """ Assemble Actor network to predict probability of each action
         """
-        x = Reshape((256, -1))(network.output)
-        x = Dense(1024)(x)
-        x = Dense(1024)(x)
-        x = Flatten()(x)
+        x = Dense(512)(network.output)
+        x = Dense(512)(x)
         self.out = Dense(self.out_dim, activation='softmax')(x)
         return Model(network.input, self.out)
 

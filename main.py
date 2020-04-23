@@ -60,7 +60,7 @@ def parse_args(args):
     parser.add_argument('--batch_size', type=int, default=wandb.config.batch_size, help="Batch size (experience replay)")
     parser.add_argument('--consecutive_frames', type=int, default=4, help="Number of consecutive frames (action repeat)")
     parser.add_argument('--training_interval', type=int, default=wandb.config.batch_size, help="Network training frequency")
-    parser.add_argument('--n_threads', type=int, default=12, help="Number of threads (A3C)")
+    parser.add_argument('--n_threads', type=int, default=16, help="Number of threads (A3C)")
     #
     parser.add_argument('--gather_stats', dest='gather_stats', action='store_true',help="Compute Average reward per episode (slower)")
     parser.add_argument('--render', dest='render', action='store_true', help="Render environment while training")

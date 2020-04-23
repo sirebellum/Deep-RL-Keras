@@ -11,6 +11,7 @@ https://github.com/ShanHaoYu/Deep-Q-Network-Breakout/blob/master/environment.py
 
 class AtariEnvironment(object):
     def __init__(self, args, input_size, test=False):
+        self.input_size = input_size
         clip_rewards = not test
         self.env = make_wrap_atari(args.env, args.consecutive_frames, input_size, clip_rewards)
         self.action_space = self.env.action_space
@@ -39,7 +40,7 @@ class AtariEnvironment(object):
         return self.env.action_space.n
 
     def get_state_size(self):
-        return 48, 48, self.consecutive_frames
+        return self.input_size[0], self.input_size[1], self.consecutive_frames
 
     def get_random_action(self):
         return self.action_space.sample()

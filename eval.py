@@ -1,5 +1,5 @@
 fname = "model.h5"
-run_path="joshherr/qualcomm/3nq7zi1m"
+run_path="joshherr/qualcomm/1q6hjmun"
 
 # import wandb
 import wandb
