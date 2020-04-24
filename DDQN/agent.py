@@ -27,7 +27,7 @@ class Agent:
         self.dueling = dueling
         # Initialize Deep Q-Network
         self.model = self.network(dueling)
-        self.model.compile(RMSprop(lr), loss="mse")
+        self.model.compile(RMSprop(lr, clipvalue=1.0), loss="mse")
 
         self.model.summary()
 
@@ -68,22 +68,18 @@ class Agent:
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(inp)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=16,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=16,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
-          x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
 
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
@@ -91,21 +87,18 @@ class Agent:
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=32,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=32,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
 
           x = Conv2D(kernel_size=(3,3),
@@ -114,21 +107,18 @@ class Agent:
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=64,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = Conv2D(kernel_size=(3,3),
                      strides=(1,1),
                      filters=64,
                      activation = 'relu',
                      padding = 'same',
                      kernel_regularizer=keras.regularizers.l2(0.01))(x)
-          x = BatchNormalization()(x)
           x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)
 
           outs.append(Reshape((self.input_size[0]//2//2//2,
@@ -142,21 +132,18 @@ class Agent:
                    activation = 'relu',
                    padding = 'same',
                    kernel_regularizer=keras.regularizers.l2(0.01))(x)
-        x = BatchNormalization()(x)
         x = Conv2D(kernel_size=(3,3),
                    strides=(1,1),
                    filters=128,
                    activation = 'relu',
                    padding = 'same',
                    kernel_regularizer=keras.regularizers.l2(0.01))(x)
-        x = BatchNormalization()(x)
         x = Conv2D(kernel_size=(3,3),
                    strides=(1,1),
                    filters=128,
                    activation = 'relu',
                    padding = 'same',
                    kernel_regularizer=keras.regularizers.l2(0.01))(x)
-        x = BatchNormalization()(x)
         x = MaxPooling2D(pool_size=(2,2), strides=(2,2))(x)        
 
         x = Flatten()(x)

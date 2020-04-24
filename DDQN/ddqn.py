@@ -112,9 +112,9 @@ class DDQN:
         self.lr = hp["lr"]
         self.gamma = 0.99
         # Exploration parameters for epsilon greedy strategy
-        self.explore_start = self.epsilon = 0.9 # exploration probability at start
+        self.explore_start = self.epsilon = 1.0 # exploration probability at start
         self.explore_stop = 0.1                 # minimum exploration probability
-        self.decay_rate = 0.00001             # exponential decay rate for exploration prob
+        self.decay_rate = 0.000001             # exponential decay rate for exploration prob
 
         self.buffer_size = 20000
         self.input_size = input_size

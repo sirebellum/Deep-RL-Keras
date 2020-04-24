@@ -11,6 +11,8 @@ import wandb
 import cv2
 from tensorflow.compat.v1.keras.backend import set_session
 
+from collections import deque
+
 episode = 0
 lock = Lock()
 
@@ -51,6 +53,7 @@ def training_thread(agent, Nmax, env, action_dim, f, tqdm, render, num):
     """
 
     global episode
+    position = deque(maxlen=50); position.append(0)
     set_session(agent.actor.sess)
     with agent.actor.sess.as_default():
         with agent.actor.graph.as_default():
@@ -61,21 +64,26 @@ def training_thread(agent, Nmax, env, action_dim, f, tqdm, render, num):
                 old_state = env.reset()
                 actions, states, rewards = [], [], []
                 while not done and episode < Nmax:
-                    if num == 0:
-                        cv2.imshow("game", np.amax(old_state, axis=-1))
-                        cv2.waitKey(1)
                     # Actor picks an action (following the policy)
                     a, a_vect = agent.policy_action(np.expand_dims(old_state, axis=0))
                     # Retrieve new state, reward, and whether the state is terminal
                     new_state, r, done, _ = env.step(a)
+                    cumul_reward += r
+
+                    # Reward for not staying in place
+                    if a == 2: position.append(position[-1]+1)
+                    if a == 3: position.append(position[-1]-1)
+                    r_w = abs(max(position) - min(position))/100
+                    r += r_w
+
                     # Memorize (s, a, r) for training
                     actions.append(to_categorical(a, action_dim))
                     rewards.append(r)
                     states.append(old_state)
                     # Update current state
                     old_state = new_state
-                    cumul_reward += r
                     time += 1
+
                     # Asynchronous training
                     if(time%f==0 or done):
                         lock.acquire()
@@ -91,5 +99,5 @@ def training_thread(agent, Nmax, env, action_dim, f, tqdm, render, num):
                         episode += 1
 
                     if num == 0:
-                        evaluate(cumul_reward*10)
+                        evaluate(cumul_reward)
                         wandb.log({'confidence': np.amax(a_vect)})
